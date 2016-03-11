@@ -1,7 +1,5 @@
 package com.test.factory;
 
-import Sender;
-
 public class SmsSender implements Sender{
 
 	@Override
