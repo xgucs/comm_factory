@@ -1,0 +1,29 @@
+package com.test.single.mode;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.Scanner;
+
+public class TestMain {
+	public static void main(String[] args) {
+		StreamTest();
+	}
+
+	private static void StreamTest() {
+		BufferedReader br = null;
+		BufferedWriter
+		br = new BufferedReader(new InputStreamReader(System.in));
+		try {
+			FileWriter fw=new FileWriter("C:\\a.txt");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+}

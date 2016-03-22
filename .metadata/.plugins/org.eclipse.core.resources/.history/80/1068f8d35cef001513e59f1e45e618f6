@@ -1,0 +1,130 @@
+package com.test.single.mode;
+
+import java.io.File;
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+
+@Controller
+public class AmlUpdateController {
+	@RequestMapping(value= {"/update"}, method= {org.springframework.web.bind.annotation.RequestMethod.POST})
+	public String softUpdate(int id, String updating_apk_version, String brand, String device, String board, String mac, String firmware, String time, String android, String builder, String fingerprint, HttpServletRequest request, HttpSession session, Model model) {
+		String androidStr="android"+android;
+		Map parameterMap = new HashMap();
+		parameterMap.put("id", id);
+		parameterMap.put("updating_apk_version", updating_apk_version);
+		parameterMap.put("brand", brand);
+		parameterMap.put("device", device);
+		parameterMap.put("board", board);
+		parameterMap.put("mac", mac);
+		parameterMap.put("firmware", firmware);
+		parameterMap.put("time", time);
+		parameterMap.put("android", android);
+		parameterMap.put("builder", builder);
+		parameterMap.put("fingerprint", fingerprint);
+        System.out.println("===="+model.toString());
+		System.out.println("mac="+mac+"fireware="+firmware+"id="+id+"brand="+brand+"device="+device+"board="+board+"android="+android+"version="+updating_apk_version);
+        String str=session .getServletContext().getRealPath(File.separator) +"snc_filter.conf";
+        boolean isNeedToUpdate=SNCFilter.isToupdate(str, mac);
+		System.out.println("SNCFilter:"+SNCFilter.isToupdate(str, mac));
+		if(isNeedToUpdate){
+			
+		}else{
+			System.out.print("Éý¼¶ÅäÖÃÓÐÎó!!!");
+			return "index";
+			
+		}
+        
+		String devicePath = session.getServletContext()
+		                    .getRealPath(File.separator) + (device+android+".conf");
+
+		Map localparameterMap = FileAccess.getMap(session
+		                        .getServletContext().getRealPath(File.separator) +
+		                        "parameter.conf");
+
+		Iterator keys = localparameterMap.keySet().iterator();
+		String parameter = null;
+		boolean dirtyflag = false;
+		boolean deviceconfigflag = new File(devicePath).exists();
+		while (keys.hasNext()) {
+			parameter = (String)keys.next();
+			// System.out.println("android:"+android+"parameter:"+parameter+"
+			// localparameterMap.get(parameter):"+localparameterMap.get(parameter));
+			if (parameter.startsWith("android")) {
+				if (android.equals(localparameterMap.get(parameter))&&!dirtyflag) {
+					dirtyflag = true;
+				}
+			} else if (!((String)parameterMap.get(parameter)).equals(localparameterMap.get(parameter))&&(!parameter.startsWith("android"))) {
+				if(!deviceconfigflag) {
+					System.out.println("exit parameter diff");
+					return "index";
+				}
+			}
+		}
+		if(!dirtyflag && (! deviceconfigflag)) {
+			System.out.println("exit parameter android sysid");
+			return "index";
+		}
+
+		String confPath = session.getServletContext()
+		                  .getRealPath(File.separator) + (
+		                      id == 1000 ? "debug.conf" : "update.conf");
+
+		Map confMap;
+		boolean vsflag;
+		if(!deviceconfigflag)
+			confMap = FileAccess.getMap(confPath);
+		else
+			confMap = FileAccess.getMap(devicePath);
+		if(firmware.length() > 10 ) {
+			vsflag = true;
+		} else {
+			vsflag = false;
+		}
+
+		if (vsflag && !confMap.get("lastest"+firmware.substring(0,5)).equals(null)) {
+			/* this need to change when thinking about uitool */
+			if (firmware.equals(confMap.get("lastest"+firmware.substring(0,5)))) {
+				model.addAttribute("html", "status=is_up_to_date");
+			} else {
+				String url = (String)confMap.get(firmware);
+				// System.out.println(url +
+				// "~~~"+firmware+"verison="+FileAccess.lastFullVersion+"lastest"+firmware.substring(0,5));
+				if(url==""||url.equals(null)) {
+					if(firmware.startsWith(FileAccess.lastFullVersion)) {
+						url=(String)confMap.get(FileAccess.lastFullVersion);
+					}
+				}
+				model.addAttribute("html", "url=" + url);
+				System.out.println(url + "~~~");
+			}
+		} else {
+			/* this need to change when thinking about uitool */
+			if (firmware.equals(confMap.get("lastest"))) {
+				model.addAttribute("html", "status=is_up_to_date");
+			} else {
+				String url = (String)confMap.get(firmware);
+				System.out.println(url + "~~~"+firmware);
+				if(url==""||url.equals(null)) {			
+
+					if(firmware.startsWith(FileAccess.lastFullVersion)) {
+						url=(String)confMap.get(FileAccess.lastFullVersion);
+					}
+				}
+				model.addAttribute("html", "url=" + url);
+				System.out.println(url + "~~~");
+			}
+		}
+
+		return "index";
+	}
+
+}

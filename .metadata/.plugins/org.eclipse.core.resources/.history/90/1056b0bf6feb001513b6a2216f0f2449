@@ -1,0 +1,843 @@
+package com.vs.wizard.view;
+
+import java.util.ArrayList;
+
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.res.TypedArray;
+import android.graphics.Canvas;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.Shader.TileMode;
+import android.os.Handler;
+import android.os.Message;
+import android.util.AttributeSet;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
+
+import com.vs.wizard.R;
+
+/**
+ * WheelView trolley
+ */
+public class WheelView extends View {
+	/**
+	 * The width of the control
+	 */
+	private float controlWidth;
+	/**
+	 * The height of the control
+	 */
+	private float controlHeight;
+	/**
+	 * If sliding
+	 */
+	private boolean isScrolling = false;
+	/**
+	 * The selected content
+	 */
+	private ArrayList<ItemObject> itemList = new ArrayList<ItemObject>();
+	/**
+	 * The data set
+	 */
+	private ArrayList<String> dataList = new ArrayList<String>();
+	/**
+	 * Press the coordinates
+	 */
+	private int downY;
+	/**
+	 * Press time
+	 */
+	private long downTime = 0;
+	/**
+	 * Mobile short
+	 */
+	private long goonTime = 200;
+	/**
+	 * Short distance
+	 */
+	private int goonDistence = 100;
+	/**
+	 * Line drawing pen
+	 */
+	private Paint linePaint;
+	/**
+	 * The default color line
+	 */
+	private int lineColor = 0xff000000;
+	/**
+	 * The default width line
+	 */
+	private float lineWidth = 2f;
+	/**
+	 * The default font
+	 */
+	private float normalFont = 14.0f;
+	/**
+	 * When the selected font
+	 */
+	private float selectedFont = 22.0f;
+	/**
+	 * The cell height
+	 */
+	private int unitHeight = 50;
+	/**
+	 * To show how much content
+	 */
+	private int itemNumber = 7;
+	/**
+	 * The default font color
+	 */
+	private int normalColor = 0xff000000;
+	/**
+	 * When the selected font color
+	 */
+	private int selectedColor = 0xffff0000;
+	/**
+	 * Mask height
+	 */
+	private float maskHight = 48.0f;
+	/**
+	 * Selection of monitoring
+	 */
+
+	/**
+	 * Are available
+	 */
+
+	private boolean isEnable = true;
+
+	/**
+	 * To refresh the interface
+	 */
+	private static final int REFRESH_VIEW = 0x001;
+
+	/**
+	 * Moving distance
+	 */
+	private static final int MOVE_NUMBER = 5;
+	/**
+	 * Whether to allow the selection of air
+	 */
+	private boolean noEmpty = true;
+
+	/**
+	 * Is to modify the data, to avoid abnormal ConcurrentModificationException
+	 */
+	private boolean isClearing = false;
+
+	public WheelView(Context context, AttributeSet attrs, int defStyle) {
+		super(context, attrs, defStyle);
+		init(context, attrs);
+		initData();
+	}
+
+	public WheelView(Context context, AttributeSet attrs) {
+		super(context, attrs);
+		init(context, attrs);
+		initData();
+	}
+
+	public WheelView(Context context) {
+		super(context);
+		initData();
+	}
+
+	@SuppressLint("ClickableViewAccessibility")
+	@Override
+	public boolean onTouchEvent(MotionEvent event) {
+
+		if (!isEnable)
+			return true;
+		int y = (int) event.getY();
+		switch (event.getAction()) {
+		case MotionEvent.ACTION_DOWN:
+			isScrolling = true;
+			downY = (int) event.getY();
+			downTime = System.currentTimeMillis();
+			break;
+		case MotionEvent.ACTION_MOVE:
+			actionMove(y - downY);
+			onSelectListener();
+			break;
+		case MotionEvent.ACTION_UP:
+			int move = Math.abs(y - downY);
+			// Judging distance while moving
+			if (System.currentTimeMillis() - downTime < goonTime && move > goonDistence) {
+				goonMove(y - downY);
+			} else {
+				actionUp(y - downY);
+			}
+			noEmpty();
+			isScrolling = false;
+			break;
+		default:
+			break;
+		}
+		return true;
+	}
+
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		switch (keyCode) {
+
+		case KeyEvent.KEYCODE_DPAD_UP:
+			if (getSelected() > 0) {
+				actionMove(10);
+				actionUp(10);
+			}
+			break;
+
+		case KeyEvent.KEYCODE_DPAD_DOWN:
+			if (getSelected() < dataList.size() - 1) {
+				actionMove(-10);
+				actionUp(-10);
+			}
+			break;
+		case KeyEvent.KEYCODE_DPAD_LEFT:
+			// onClickListener1.click();
+			break;
+		case KeyEvent.KEYCODE_DPAD_RIGHT:
+			onClickListener1.click();
+			break;
+		case KeyEvent.KEYCODE_DPAD_CENTER:
+			// onClickListener1.click();
+			break;
+
+		default:
+			break;
+		}
+		return true;
+	}
+
+
+	@Override
+	protected void onDraw(Canvas canvas) {
+		super.onDraw(canvas);
+		drawLine(canvas);
+		drawList(canvas);
+		drawMask(canvas);
+	}
+
+	private synchronized void drawList(Canvas canvas) {
+		if (isClearing)
+			return;
+		try {
+			for (ItemObject itemObject : itemList) {
+				itemObject.drawSelf(canvas);
+			}
+		} catch (Exception e) {
+		}
+
+	}
+
+	@Override
+	protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+		super.onLayout(changed, left, top, right, bottom);
+	}
+
+	@Override
+	protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+		super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+		controlWidth = getWidth(); // no user
+		// controlWidth = 300;
+		if (controlWidth != 0) {
+			setMeasuredDimension(getWidth(), itemNumber * unitHeight);
+			controlWidth = getWidth();
+		} else {
+			controlWidth = Dp2Px(getContext(), 465);
+		}
+
+	}
+
+	/**
+	 * dp => px
+	 * 
+	 * @param context
+	 * @param dp
+	 * @return
+	 */
+	public static int Dp2Px(Context context, float dp) {
+		final float scale = context.getResources().getDisplayMetrics().density;
+		return (int) (dp * scale + 0.5f);
+	}
+
+	/**
+	 * px => dp
+	 * 
+	 * @param context
+	 * @param px
+	 * @return
+	 */
+	public static int Px2Dp(Context context, float px) {
+		final float scale = context.getResources().getDisplayMetrics().density;
+		return (int) (px / scale + 0.5f);
+	}
+
+	/**
+	 * To move a certain distance
+	 */
+	private synchronized void goonMove(final int move) {
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				int distence = 0;
+				while (distence < unitHeight * MOVE_NUMBER) {
+					try {
+						Thread.sleep(5);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					actionThreadMove(move > 0 ? distence : distence * (-1));
+					distence += 10;
+
+				}
+				actionUp(move > 0 ? distence - 10 : distence * (-1) + 10);
+				noEmpty();
+			}
+		}).start();
+	}
+
+	/**
+	 * Can not be empty, must have the option
+	 */
+	private void noEmpty() {
+		if (!noEmpty)
+			return;
+		for (ItemObject item : itemList) {
+			if (item.isSelected())
+				return;
+		}
+		int move = (int) itemList.get(0).moveToSelected();
+		if (move < 0) {
+			defaultMove(move);
+		} else {
+			defaultMove((int) itemList.get(itemList.size() - 1).moveToSelected());
+		}
+		for (ItemObject item : itemList) {
+			if (item.isSelected()) {
+				if (onSelectListener != null)
+					onSelectListener.endSelect(item.id, item.itemText);
+				break;
+			}
+		}
+	}
+
+	/**
+	 * The initialization data
+	 */
+	private void initData() {
+		isClearing = true;
+		itemList.clear();
+		for (int i = 0; i < dataList.size(); i++) {
+			ItemObject itmItemObject = new ItemObject();
+			itmItemObject.id = i;
+			itmItemObject.itemText = dataList.get(i);
+			itmItemObject.x = 0;
+			itmItemObject.y = i * unitHeight;
+			itemList.add(itmItemObject);
+		}
+		isClearing = false;
+	}
+
+	/**
+	 * When moving
+	 * 
+	 * @param move
+	 */
+	private void actionMove(int move) {
+		for (ItemObject item : itemList) {
+			item.move(move);
+		}
+		invalidate();
+	}
+
+	/**
+	 * Mobile, thread to call
+	 * 
+	 * @param move
+	 */
+	private void actionThreadMove(int move) {
+		for (ItemObject item : itemList) {
+			item.move(move);
+		}
+		Message rMessage = new Message();
+		rMessage.what = REFRESH_VIEW;
+		handler.sendMessage(rMessage);
+	}
+
+	/**
+	 * Release time
+	 * 
+	 * @param move
+	 */
+	private void actionUp(int move) {
+		int newMove = 0;
+		if (move > 0) {
+			for (int i = 0; i < itemList.size(); i++) {
+				if (itemList.get(i).isSelected()) {
+					newMove = (int) itemList.get(i).moveToSelected();
+					if (onSelectListener != null)
+						onSelectListener.endSelect(i, itemList.get(i).itemText);
+					break;
+				}
+			}
+		} else {
+			for (int i = itemList.size() - 1; i >= 0; i--) {
+				if (itemList.get(i).isSelected()) {
+					newMove = (int) itemList.get(i).moveToSelected();
+					if (onSelectListener != null)
+						onSelectListener.endSelect(i, itemList.get(i).itemText);
+					break;
+				}
+			}
+		}
+		for (ItemObject item : itemList) {
+			item.newY(move + 0);
+		}
+		slowMove(newMove);
+		Message rMessage = new Message();
+		rMessage.what = REFRESH_VIEW;
+		handler.sendMessage(rMessage);
+
+	}
+
+	/**
+	 * Move slowly
+	 * 
+	 * @param move
+	 */
+	private synchronized void slowMove(final int move) {
+		new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				// Judgment of positive and negative
+				int m = move > 0 ? move : move * (-1);
+				int i = move > 0 ? 1 : (-1);
+				// Movement speed
+				int speed = 1;
+				while (true) {
+					m = m - speed;
+					if (m <= 0) {
+						for (ItemObject item : itemList) {
+							item.newY(m * i);
+						}
+						Message rMessage = new Message();
+						rMessage.what = REFRESH_VIEW;
+						handler.sendMessage(rMessage);
+						try {
+							Thread.sleep(1);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+						break;
+					}
+					for (ItemObject item : itemList) {
+						item.newY(speed * i);
+					}
+					Message rMessage = new Message();
+					rMessage.what = REFRESH_VIEW;
+					handler.sendMessage(rMessage);
+					try {
+						Thread.sleep(2);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				for (ItemObject item : itemList) {
+					if (item.isSelected()) {
+						if (onSelectListener != null)
+							onSelectListener.endSelect(item.id, item.itemText);
+						break;
+					}
+				}
+
+			}
+		}).start();
+	}
+
+	/**
+	 * Moving to the default location
+	 * 
+	 * @param move
+	 */
+	private void defaultMove(int move) {
+		for (ItemObject item : itemList) {
+			item.newY(move);
+		}
+		Message rMessage = new Message();
+		rMessage.what = REFRESH_VIEW;
+		handler.sendMessage(rMessage);
+	}
+
+	private int id;
+	private String text;
+
+	/**
+	 * Sliding Monitoring
+	 */
+	private void onSelectListener() {
+		if (onSelectListener == null)
+			return;
+		for (ItemObject item : itemList) {
+			if (item.isSelected()) {
+				id = item.id;
+				text = item.itemText;
+				onSelectListener.selecting(id, text);
+			}
+		}
+	}
+
+	/**
+	 * Draw a line
+	 * 
+	 * @param canvas
+	 */
+	private void drawLine(Canvas canvas) {
+
+		if (linePaint == null) {
+			linePaint = new Paint();
+			linePaint.setColor(lineColor);
+			linePaint.setAntiAlias(true);
+			linePaint.setStrokeWidth(lineWidth);
+		}
+
+		canvas.drawLine(0, controlHeight / 2 - unitHeight / 2 + 2, controlWidth, controlHeight / 2 - unitHeight / 2 + 2, linePaint);
+		canvas.drawLine(0, controlHeight / 2 + unitHeight / 2 - 2, controlWidth, controlHeight / 2 + unitHeight / 2 - 2, linePaint);
+	}
+
+	/**
+	 * Drawing the cover plate
+	 * 
+	 * @param canvas
+	 */
+	private void drawMask(Canvas canvas) {
+		LinearGradient lg = new LinearGradient(0, 0, 0, maskHight, 0x00f2f2f2, 0x00f2f2f2, TileMode.MIRROR);
+		Paint paint = new Paint();
+		paint.setShader(lg);
+		canvas.drawRect(0, 0, controlWidth, maskHight, paint);
+
+		LinearGradient lg2 = new LinearGradient(0, controlHeight - maskHight, 0, controlHeight, 0x00f2f2f2, 0x00f2f2f2, TileMode.MIRROR);
+		Paint paint2 = new Paint();
+		paint2.setShader(lg2);
+		canvas.drawRect(0, controlHeight - maskHight, controlWidth, controlHeight, paint2);
+	}
+
+	/**
+	 * Initialization, get set properties
+	 * 
+	 * @param context
+	 * @param attrs
+	 */
+	private void init(Context context, AttributeSet attrs) {
+		TypedArray attribute = context.obtainStyledAttributes(attrs, R.styleable.WheelView);
+		unitHeight = (int) attribute.getDimension(R.styleable.WheelView_unitHight, 32);
+		normalFont = attribute.getDimension(R.styleable.WheelView_normalTextSize, 14.0f);
+		selectedFont = attribute.getDimension(R.styleable.WheelView_selectedTextSize, 22.0f);
+		itemNumber = attribute.getInt(R.styleable.WheelView_itemNumber, 7);
+		normalColor = attribute.getColor(R.styleable.WheelView_normalTextColor, 0xff000000);
+		selectedColor = attribute.getColor(R.styleable.WheelView_selectedTextColor, 0xffff0000);
+		lineColor = attribute.getColor(R.styleable.WheelView_lineColor, 0xff000000);
+		lineWidth = attribute.getDimension(R.styleable.WheelView_lineHeight, 2f);
+		maskHight = attribute.getDimension(R.styleable.WheelView_maskHight, 48.0f);
+		noEmpty = attribute.getBoolean(R.styleable.WheelView_noEmpty, true);
+		isEnable = attribute.getBoolean(R.styleable.WheelView_isEnable, true);
+		// controlWidth
+		// =attribute.getDimension(R.styleable.WheelView_controlWidth, 500);
+		attribute.recycle();
+
+		controlHeight = itemNumber * unitHeight;
+
+	}
+
+	/**
+	 * The data set (the first time)
+	 * 
+	 * @param data
+	 */
+	public void setData(ArrayList<String> data) {
+		this.dataList = data;
+		initData();
+	}
+
+	/**
+	 * Reset the data
+	 * 
+	 * @param data
+	 */
+	public void resetData(ArrayList<String> data) {
+		setData(data);
+		invalidate();
+	}
+
+	/**
+	 * Get back to ID
+	 * 
+	 * @return
+	 */
+	public int getSelected() {
+		for (ItemObject item : itemList) {
+			if (item.isSelected())
+				return item.id;
+		}
+		return -1;
+	}
+
+	/**
+	 * Gets the content returned
+	 * 
+	 * @return
+	 */
+	public String getSelectedText() {
+		for (ItemObject item : itemList) {
+			if (item.isSelected())
+				return item.itemText;
+		}
+		return "";
+	}
+
+	/**
+	 * Whether it is slipping
+	 * 
+	 * @return
+	 */
+	public boolean isScrolling() {
+		return isScrolling;
+	}
+
+	/**
+	 * Are available
+	 * 
+	 * @return
+	 */
+	public boolean isEnable() {
+		return isEnable;
+	}
+
+	/**
+	 * Settings are available
+	 * 
+	 * @param isEnable
+	 */
+	public void setEnable(boolean isEnable) {
+		this.isEnable = isEnable;
+	}
+
+	/**
+	 * Set the default option
+	 * 
+	 * @param index
+	 */
+	public void setDefault(int index) {
+		if (index > itemList.size() - 1)
+			return;
+		float move = itemList.get(index).moveToSelected();
+		defaultMove((int) move);
+	}
+
+	/**
+	 * Gets a list of size
+	 * 
+	 * @return
+	 */
+	public int getListSize() {
+		if (itemList == null)
+			return 0;
+		return itemList.size();
+	}
+
+	/**
+	 * To obtain a content
+	 * 
+	 * @param index
+	 * @return
+	 */
+	public String getItemText(int index) {
+		if (itemList == null)
+			return "";
+		return itemList.get(index).itemText;
+	}
+
+	@SuppressLint("HandlerLeak")
+	Handler handler = new Handler() {
+
+		@Override
+		public void handleMessage(Message msg) {
+			super.handleMessage(msg);
+			switch (msg.what) {
+			case REFRESH_VIEW:
+				invalidate();
+				break;
+			default:
+				break;
+			}
+		}
+
+	};
+
+	/**
+	 * Single content
+	 * 
+	 * @author layne
+	 */
+	private class ItemObject {
+		/**
+		 * id
+		 */
+		public int id = 0;
+		/**
+		 * Content
+		 */
+		public String itemText = "";
+		/**
+		 * X coordinates
+		 */
+		public int x = 0;
+		/**
+		 * Y coordinate
+		 */
+		public int y = 0;
+		/**
+		 * Moving distance
+		 */
+		public int move = 0;
+		/**
+		 * Font brush
+		 */
+		private Paint textPaint;
+		/**
+		 * The rectangular type
+		 */
+		private Rect textRect;
+
+		public ItemObject() {
+			super();
+		}
+
+		/**
+		 * Draw itself
+		 * 
+		 * @param canvas
+		 */
+		public void drawSelf(Canvas canvas) {
+
+			if (textPaint == null) {
+				textPaint = new Paint();
+				textPaint.setAntiAlias(true);
+			}
+
+			if (textRect == null)
+				textRect = new Rect();
+
+			// To determine whether the selected
+			if (isSelected()) {
+
+				textPaint.setColor(selectedColor);
+				// Gets the distance measure distance
+				float moveToSelect = moveToSelected();
+				moveToSelect = moveToSelect > 0 ? moveToSelect : moveToSelect * (-1);
+				// The calculation of the current font size
+				float textSize = (float) normalFont + ((float) (selectedFont - normalFont) * (1.0f - (float) moveToSelect / (float) unitHeight));
+				textPaint.setFakeBoldText(true);
+				textPaint.setTextSize(textSize);
+			} else {
+				textPaint.setFakeBoldText(false);
+				textPaint.setColor(normalColor);
+				textPaint.setTextSize(normalFont);
+			}
+
+			// Returns a Rect minimum area surrounded the entire string.
+			textPaint.getTextBounds(itemText, 0, itemText.length(), textRect);
+			// To determine whether the visual
+			if (!isInView())
+				return;
+
+			// Drawing content
+			canvas.drawText(itemText, x + controlWidth / 2 - textRect.width() / 2, y + move + unitHeight / 2 + textRect.height() / 2, textPaint);
+
+		}
+
+		/**
+		 * Whether in the visual interface
+		 * 
+		 * @return
+		 */
+		public boolean isInView() {
+			if (y + move > controlHeight || (y + move + unitHeight / 2 + textRect.height() / 2) < 0)
+				return false;
+			return true;
+		}
+
+		/**
+		 * Moving distance
+		 * 
+		 * @param _move
+		 */
+		public void move(int _move) {
+			this.move = _move;
+		}
+
+		/**
+		 * Setting up a new coordinate
+		 * 
+		 * @param _move
+		 */
+		public void newY(int _move) {
+			this.move = 0;
+			this.y = y + _move;
+		}
+
+		/**
+		 * Whether in the choice of region
+		 */
+		public boolean isSelected() {
+			if ((y + move) >= controlHeight / 2 - unitHeight / 2 + 2 && (y + move) <= controlHeight / 2 + unitHeight / 2 - 2)
+				return true;
+			if ((y + move + unitHeight) >= controlHeight / 2 - unitHeight / 2 + 2 && (y + move + unitHeight) <= controlHeight / 2 + unitHeight / 2 - 2)
+				return true;
+			if ((y + move) <= controlHeight / 2 - unitHeight / 2 + 2 && (y + move + unitHeight) >= controlHeight / 2 + unitHeight / 2 - 2)
+				return true;
+			return false;
+		}
+
+		/**
+		 * Get moving to a standard position need to distance
+		 */
+		public float moveToSelected() {
+			return (controlHeight / 2 - unitHeight / 2) - (y + move);
+		}
+	}
+
+	/**
+	 * SelectListener
+	 */
+	private OnSelectListener onSelectListener;
+
+	public void setOnSelectListener(OnSelectListener onSelectListener) {
+		this.onSelectListener = onSelectListener;
+	}
+
+	public interface OnSelectListener {
+		public void endSelect(int id, String text);
+
+		public void selecting(int id, String text);
+	}
+
+	/**
+	 * ClickListener
+	 */
+	public OnClickListener1 onClickListener1;
+
+	public void setOnClickListener1(OnClickListener1 onClickListener1) {
+		this.onClickListener1 = onClickListener1;
+	}
+
+	public interface OnClickListener1 {
+		public void click();
+	}
+	
+
+}

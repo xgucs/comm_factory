@@ -1,7 +1,0 @@
-package com.test.single.mode;
-
-public class SingleTone {
-  private SingleTone(){}
-  private 
-
-}

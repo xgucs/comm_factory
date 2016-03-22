@@ -1,0 +1,301 @@
+package com.vs.wizard;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import android.annotation.SuppressLint;
+import android.app.FragmentTransaction;
+//import android.app.MboxOutputModeManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.provider.Settings;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
+import android.support.v4.view.ViewPager;
+import android.support.v4.view.ViewPager.OnPageChangeListener;
+import android.util.DisplayMetrics;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.view.animation.TranslateAnimation;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import com.vs.hwtest.hwtest;
+import com.vs.wizard.view.MyViewPage;
+import com.vs.wizard.view.MyViewPage.OnClickListener;
+import com.droidlogic.app.OutputModeManager;
+
+public class WizardActivity extends FragmentActivity {
+
+	public static int selectedCountry = 0;
+
+	private static final int MSG_FINISH = 0X16;
+	public static final String USER_SETUP_COMPLETE = "user_setup_complete";
+	private Context mContext = this;
+	private ImageView image;
+	public static ViewPager icon_display;
+	public static MyViewPage mPager;
+	private ArrayList<Fragment> fragmentList;
+	private LinearLayout pageDotLayout;
+	private List<View> mViews = new ArrayList<View>();
+
+    	public static OutputModeManager mOutputModeManager;
+
+	private static TextView press_id;
+	private static int currIndex = 0;// Current page number
+	private int bmpW;// Line width
+	private int offset;// The offset of a picture
+
+	private static final String MBOX_OUTPUTMODE_SERVICE = "mbox_outputmode_service";
+	@SuppressLint("NewApi")
+	FragmentTransaction transaction;
+
+	Handler handler = new Handler() {
+
+		@Override
+		public void handleMessage(Message msg) {
+			switch (msg.what) {
+			case MSG_FINISH:
+				wizardPostTreatment();
+				break;
+			default:
+				break;
+			}
+			super.handleMessage(msg);
+		}
+	};
+
+	@SuppressLint({ "InlinedApi", "NewApi" })
+	@Override
+	protected void onCreate(Bundle icicle) {
+		super.onCreate(icicle);
+		setContentView(R.layout.main);
+
+		press_id = (TextView) findViewById(R.id.press_id);
+		//mom = (MboxOutputModeManager) this.getSystemService(MBOX_OUTPUTMODE_SERVICE);
+        	mOutputModeManager = new OutputModeManager(mContext);
+         
+		// verifyDevice();
+		invalidApp();
+		// initUI();
+		InitImage();
+		InitViewPager();
+		// SystemDateTime.setNetTime();
+		// setPage(7);
+       
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+	}
+
+	private void verifyDevice() {
+		hwtest test = new hwtest();
+		boolean isgl = test.hwtest_init() != -1;
+		if (!isgl) {
+			System.exit(0);
+		}
+	}
+
+	public static boolean first_time = true;
+
+	public static void anim() {
+		Animation animation = new AlphaAnimation(0, 1.0f);
+		animation.setDuration(300);
+		press_id.startAnimation(animation);
+	}
+
+	@SuppressLint("NewApi")
+	private void invalidApp() {
+		Settings.Global.putInt(getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 1);
+		launcherAble(false);
+	}
+
+public boolean onKeyDown(int keyCode, KeyEvent event) {
+	  if (keyCode==KeyEvent.KEYCODE_BACK) {
+	  	    return false;
+	      }
+		if (event.getRepeatCount()==0) {
+			event.startTracking();
+			pressKey(keyCode, event);
+			return true;
+		}
+		return super.onKeyDown(keyCode, event);
+	}
+	@Override
+	public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+		// TODO Auto-generated method stub
+		return true;
+	}
+
+
+
+	private void pressKey(int keyCode, KeyEvent event) {
+		switch (currIndex) {
+
+		case 1:
+			LanguageFragment.onKeyDown(keyCode, event);
+			break;
+		case 2:
+			ScreenFragment.onKeyDown(keyCode, event);
+			break;
+		case 3:
+			NetworkFragment.onKeyDown(keyCode, event);
+			break;
+		case 4:
+			TimeZoneFragment.onKeyDown(keyCode, event);
+			break;
+		case 5:
+			ActivationFragment.onKeyDown(keyCode, event);
+			break;
+		/*case 6:
+			BoxNameFragment.onKeyDown(keyCode, event);
+			break;
+		case 7:
+			DtvFragment.onKeyDown(keyCode, event);
+			break;*/
+		case 6:
+		    currIndex=0;
+			WizardActivity.this.finish();
+			break;
+		}
+	}
+
+	/**
+	 * Disable the system comes with Launcher
+	 */
+	private void launcherAble(boolean available) {
+		try {
+			PackageManager pm = getPackageManager();
+			// 引导设置完成后进入到luncher
+			// com.vs.windows 包名
+			// com.vs.windows.Windows8Activity Activity
+/*
+			ComponentName name = new ComponentName("com.vs.windows", "com.vs.windows.Windows8Activity");
+			if (available) {
+				pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+			} else {
+				pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+			}
+*/
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void initUI() {
+		// pageDotLayout = (LinearLayout) findViewById(R.id.pager_dot);
+	}
+
+	public void InitImage() {
+		image = (ImageView) findViewById(R.id.cursor);
+		bmpW = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher).getWidth();
+		DisplayMetrics dm = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(dm);
+		int screenW = dm.widthPixels;
+		offset = (screenW / 4 - bmpW) / 2;
+		Matrix matrix = new Matrix();
+		matrix.postTranslate(offset, 0);
+		image.setImageMatrix(matrix);
+	}
+
+	@SuppressLint("NewApi")
+	public void InitViewPager() {
+		transaction = getFragmentManager().beginTransaction();
+
+		mPager = (MyViewPage) findViewById(R.id.viewpager);
+		fragmentList = new ArrayList<Fragment>();
+		Fragment resFragment = new ResolutionFragment();
+		Fragment langFragment = new LanguageFragment();
+		Fragment screenFragment = new ScreenFragment();
+		Fragment netFragment = new NetworkFragment();
+		Fragment tzoneFragment = new TimeZoneFragment();
+		Fragment activaionFragment = new ActivationFragment();
+		//Fragment boxnameFragment = new BoxNameFragment();
+		//Fragment dtvFragment = new DtvFragment();
+		Fragment settinsEndFragment = new SettingEndFragment();
+
+		fragmentList.add(resFragment);
+		fragmentList.add(langFragment);
+		fragmentList.add(screenFragment);
+		fragmentList.add(netFragment);
+		fragmentList.add(tzoneFragment);
+		fragmentList.add(activaionFragment);
+		//fragmentList.add(boxnameFragment);
+		//fragmentList.add(dtvFragment);
+		fragmentList.add(settinsEndFragment);
+
+		mPager.setAdapter(new WizardPagerAdapter(getSupportFragmentManager(), fragmentList));
+		mPager.setCurrentItem(0);
+		mPager.setOnPageChangeListener(new PageChangeListener());
+		mPager.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void click() {
+				if (currIndex == 0) {
+					anim();
+					setPage(1);
+				} else {
+					pressKey(22, null);
+				}
+				if (currIndex == 6) {
+					handler.sendEmptyMessage(0X16);
+				}
+			}
+		});
+	}
+
+	public class PageChangeListener implements OnPageChangeListener {
+		private int one = offset * 2 + bmpW;
+
+		@Override
+		public void onPageScrolled(int arg0, float arg1, int arg2) {
+
+		}
+
+		@Override
+		public void onPageScrollStateChanged(int arg0) {
+
+		}
+
+		@Override
+		public void onPageSelected(int i) {
+			Animation animation = new TranslateAnimation(currIndex * one, i * one, 0, 0);
+			currIndex = i;
+			animation.setFillAfter(true);
+			animation.setDuration(200);
+			image.startAnimation(animation);
+			int a = currIndex + 1;
+			// Toast.makeText(WizardActivity.this, a,Toast.LENGTH_SHORT).show();
+		}
+	}
+
+	@SuppressLint("NewApi")
+	private void wizardPostTreatment() {
+		launcherAble(true);
+		PackageManager pm = getPackageManager();
+		ComponentName name = new ComponentName(this, WizardActivity.class);
+		pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+		finish();
+	}
+
+	public static void setPage(int i) {
+		mPager.setCurrentItem(i);
+	}
+
+
+	
+
+
+
+}

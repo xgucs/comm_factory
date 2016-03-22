@@ -1,0 +1,34 @@
+package com.test.single.mode;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
+public class TestMain {
+	public static void main(String[] args) {
+		StreamTest();
+	}
+
+	private static void StreamTest() {
+		BufferedReader br = null;
+		BufferedWriter bw=null;
+		br = new BufferedReader(new InputStreamReader(System.in));
+		try {
+			FileWriter fw=new FileWriter("G:\\a.txt");
+			bw=new BufferedWriter(fw);
+			String s;
+			while ((s=br.readLine())!=null) {
+				bw.write(s);
+				bw.flush();
+				bw.newLine();
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+
+}

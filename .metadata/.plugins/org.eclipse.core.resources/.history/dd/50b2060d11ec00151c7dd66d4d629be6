@@ -1,0 +1,32 @@
+package com.test.single.mode;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+
+public class TestMain {
+	public static void main(String[] args){
+        BufferedReader reader=null;
+		try {
+			reader = new BufferedReader(new FileReader("G:\\ViewPager.java"));
+		} catch (FileNotFoundException e1) {
+			e1.printStackTrace();
+		}
+        try {
+        	String next=null;
+        	StringBuffer sb=new StringBuffer();;
+			while ((next=reader.readLine())!=null) {
+				sb.append(next);
+				System.out.print(new String(sb));
+				System.out.print("\n");
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	
+}

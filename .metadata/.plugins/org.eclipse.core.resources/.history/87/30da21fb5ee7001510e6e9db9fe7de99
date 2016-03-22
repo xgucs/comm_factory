@@ -1,7 +1,0 @@
-package com.test.single.mode;
-
-public class Apple {
-  private Apple(){}
-  private 
-
-}
